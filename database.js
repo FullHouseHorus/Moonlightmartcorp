@@ -4,7 +4,7 @@ const path = require('path');
 const dbPath = path.join(__dirname, 'app.db');
 const db = new sqlite3.Database(dbPath);
 
-// Initialize database schema WITHOUT indexes (Issue #2)
+// Initialize database schema with indexes (Issue #2 - FIXED)
 function initializeDatabase() {
   db.serialize(() => {
     // Create users table
@@ -60,6 +60,15 @@ function initializeDatabase() {
         timestamp DATETIME
       )
     `);
+
+    // Create indexes for frequently queried columns (Performance optimization)
+    db.run(`CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id)`);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)`);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_products_category ON products(category)`);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_logs_user_id ON logs(user_id)`);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id)`);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_order_items_product_id ON order_items(product_id)`);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`);
 
     // Seed sample data
     seedDatabase();
