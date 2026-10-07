@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f7f5ef">
+    <title>Fortday — Make room for what matters</title>
+    <meta name="description" content="Thoughtful digital tools to help you plan, create, and make room for what matters.">
+    <meta property="og:title" content="Fortday — Make room for what matters">
+    <meta property="og:description" content="Thoughtful guides and tools for more intentional days. Explore the Fortday digital collection.">
+    <meta property="og:type" content="website">
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="Fortday home">fortday<span>.</span></a>
+      <a class="header-link" href="#support">Help & support</a>
+    </header>
+
+    <main>
+      <section class="hero">
+        <p class="eyebrow">A little more intention, every day</p>
+        <h1>Make room for<br><em>what matters.</em></h1>
+        <p class="hero-copy">Thoughtful guides and tools to help you plan your week, find your rhythm, and bring good ideas to life.</p>
+        <a class="button button-dark" href="#shop">Explore the collection <span aria-hidden="true">↓</span></a>
+        <div class="hero-mark" aria-hidden="true">F.</div>
+      </section>
+
+      <section id="notice" class="notice" role="status" aria-live="polite" hidden></section>
+
+      <section id="shop" class="shop-section">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">The Fortday collection</p>
+            <h2>Small tools. Better days.</h2>
+          </div>
+          <p>Instant digital downloads, ready when you are.</p>
+        </div>
+        <div id="products" class="product-grid" aria-live="polite">
+          <p class="loading">Loading the collection…</p>
+        </div>
+      </section>
+
+      <section id="support" class="support-section">
+        <div>
+          <p class="eyebrow">Here to help</p>
+          <h2>Good questions<br>deserve good answers.</h2>
+        </div>
+        <div class="faq-list">
+          <details>
+            <summary>How do I get my download?</summary>
+            <p>After payment, your download link appears here and is also sent to your receipt email with your order number.</p>
+          </details>
+          <details>
+            <summary>Can I download it again later?</summary>
+            <p>Yes. Keep your receipt email somewhere safe; its private download link continues to work.</p>
+          </details>
+          <details>
+            <summary>I need help with an order or refund.</summary>
+            <p>Look up a past purchase below, or contact our support team about an order or refund.</p>
+          </details>
+          <form id="order-lookup" class="order-lookup">
+            <label>
+              Order number
+              <input name="orderId" autocomplete="off" required placeholder="Order number from your receipt">
+            </label>
+            <label>
+              Checkout email
+              <input name="email" type="email" autocomplete="email" required placeholder="you@example.com">
+            </label>
+            <button class="button button-outline" type="submit">Find my order</button>
+            <p id="order-result" class="order-result" role="status" aria-live="polite"></p>
+          </form>
+          <a id="support-link" class="support-link" href="mailto:support@example.com">Contact support <span aria-hidden="true">↗</span></a>
+        </div>
+      </section>
+
+      <section id="social" class="social-section">
+        <div>
+          <p class="eyebrow">A little inspiration, wherever you scroll</p>
+          <h2>Find Fortday<br>in your feed.</h2>
+          <p class="social-copy">Follow along for gentle routines, useful prompts, and a little encouragement to make room for what matters.</p>
+          <div id="social-links" class="social-links" aria-live="polite"></div>
+        </div>
+        <div class="launch-copy">
+          <p class="eyebrow">Ready when you are</p>
+          <h3>Share a little Fortday.</h3>
+          <p>Copy a launch caption to share on your favorite platform.</p>
+          <div class="caption-platforms" role="group" aria-label="Choose a launch caption">
+            <button class="caption-platform is-selected" type="button" data-platform="instagram" aria-pressed="true">Instagram</button>
+            <button class="caption-platform" type="button" data-platform="facebook" aria-pressed="false">Facebook</button>
+            <button class="caption-platform" type="button" data-platform="tiktok" aria-pressed="false">TikTok</button>
+          </div>
+          <div class="caption-card">
+            <p id="launch-caption"></p>
+            <button id="copy-caption" class="button button-outline" type="button">Copy launch caption</button>
+          </div>
+          <p class="share-note">Add your live storefront link and profile URLs in your environment settings before sharing.</p>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <a class="brand" href="/">fortday<span>.</span></a>
+      <p>Thoughtful things for your everyday.</p>
+    </footer>
+  </body>
+</html>

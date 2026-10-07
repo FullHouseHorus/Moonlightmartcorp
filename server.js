@@ -1,277 +1,335 @@
+require('dotenv').config();
+
+const crypto = require('crypto');
+const path = require('path');
 const express = require('express');
-const fs = require('fs');
-const { v4: uuidv4 } = require('uuid');
-const { db, initializeDatabase } = require('./database');
+const nodemailer = require('nodemailer');
+const Stripe = require('stripe');
+const {
+  closeDatabase,
+  createStoreDatabase,
+  initializeDatabase,
+  openDatabase
+} = require('./database');
 
-const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
+const ASSET_DIRECTORY = path.join(__dirname, 'storefront-assets');
+const PUBLIC_DIRECTORY = path.join(__dirname, 'public');
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// Global event listeners that leak memory (Issue #8)
-const eventListeners = {};
+function asyncRoute(handler) {
+  return (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
+}
 
-app.use(express.json());
+function createConfig(env = process.env) {
+  const port = Number(env.PORT) || PORT;
+  return {
+    baseUrl: (env.PUBLIC_BASE_URL || `http://localhost:${port}`).replace(/\/+$/, ''),
+    stripeSecretKey: env.STRIPE_SECRET_KEY || '',
+    stripeWebhookSecret: env.STRIPE_WEBHOOK_SECRET || '',
+    supportEmail: env.SUPPORT_EMAIL || '',
+    crmWebhookUrl: env.CRM_WEBHOOK_URL || '',
+    crmWebhookSecret: env.CRM_WEBHOOK_SECRET || '',
+    smtpHost: env.SMTP_HOST || '',
+    smtpPort: Number(env.SMTP_PORT) || 587,
+    smtpUser: env.SMTP_USER || '',
+    smtpPassword: env.SMTP_PASSWORD || '',
+    smtpFrom: env.SMTP_FROM || '',
+    socialLinks: {
+      instagram: safeSocialUrl(env.SOCIAL_INSTAGRAM_URL, 'SOCIAL_INSTAGRAM_URL'),
+      facebook: safeSocialUrl(env.SOCIAL_FACEBOOK_URL, 'SOCIAL_FACEBOOK_URL'),
+      tiktok: safeSocialUrl(env.SOCIAL_TIKTOK_URL, 'SOCIAL_TIKTOK_URL')
+    }
+  };
+}
 
-// Middleware with inefficient regex (Issue #7)
-const inefficientRegex = /^\/api\/[a-zA-Z0-9]*\/[a-zA-Z0-9]*\/[a-zA-Z0-9]*\/[a-zA-Z0-9]*\/[a-zA-Z0-9]*\/users\/[a-zA-Z0-9\-]*$/;
-
-app.use((req, res, next) => {
-  // Inefficient regex matching on every request
-  if (inefficientRegex.test(req.url)) {
-    // Intentionally expensive operation
+function safeSocialUrl(value, key) {
+  if (!value) return '';
+  const url = new URL(value);
+  if (url.protocol !== 'https:' || url.username || url.password) {
+    throw new Error(`${key} must be an HTTPS profile URL without embedded credentials.`);
   }
-  next();
-});
+  return url.href;
+}
 
-// Route 1: N+1 Query Problem (Issue #1)
-// Fetches all orders, then for each order, fetches user data and items separately
-app.get('/api/orders', (req, res) => {
-  const limit = req.query.limit || 1000; // No pagination (Issue #9)
-  
-  db.all(
-    "SELECT * FROM orders LIMIT ?",
-    [limit],
-    (err, orders) => {
-      if (err) {
-        return res.status(500).json({ error: err.message });
-      }
+function createMailer(config) {
+  if (!config.smtpHost || !config.smtpFrom) return null;
 
-      // N+1 problem: one query per order to fetch user
-      let enrichedOrders = [];
-      let completed = 0;
-
-      orders.forEach((order) => {
-        db.get(
-          "SELECT * FROM users WHERE id = ?",
-          [order.user_id],
-          (err, user) => {
-            if (!err && user) {
-              // Another query per order to fetch items
-              db.all(
-                "SELECT * FROM order_items WHERE order_id = ?",
-                [order.id],
-                (err, items) => {
-                  enrichedOrders.push({
-                    ...order,
-                    user: user,
-                    items: items || []
-                  });
-
-                  completed++;
-                  if (completed === orders.length) {
-                    // Response is not compressed (Issue #6)
-                    res.json({ orders: enrichedOrders });
-                  }
-                }
-              );
-            }
-          }
-        );
-      });
-
-      if (orders.length === 0) {
-        res.json({ orders: [] });
-      }
-    }
-  );
-});
-
-// Route 2: Synchronous file operations (Issue #5)
-app.get('/api/export/orders', (req, res) => {
-  db.all("SELECT * FROM orders", (err, orders) => {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
-
-    // Synchronous file write - blocks the event loop
-    const filePath = `./export_${Date.now()}.json`;
-    fs.writeFileSync(filePath, JSON.stringify(orders, null, 2));
-    
-    // Another synchronous operation
-    const data = fs.readFileSync(filePath, 'utf8');
-
-    res.json({ file: filePath, size: data.length });
+  return nodemailer.createTransport({
+    host: config.smtpHost,
+    port: config.smtpPort,
+    secure: config.smtpPort === 465,
+    auth: config.smtpUser ? {
+      user: config.smtpUser,
+      pass: config.smtpPassword
+    } : undefined
   });
-});
+}
 
-// Route 3: Inefficient loops and algorithms (Issue #3)
-app.get('/api/products/search', (req, res) => {
-  const query = req.query.q || '';
+async function sendCrmNotification(config, order) {
+  if (!config.crmWebhookUrl) return false;
+  const payload = JSON.stringify({
+    type: 'purchase.completed',
+    orderId: order.id,
+    email: order.customer_email,
+    product: order.product_name,
+    amount: order.amount,
+    currency: order.currency,
+    purchasedAt: order.updated_at
+  });
+  const headers = { 'content-type': 'application/json' };
+  if (config.crmWebhookSecret) {
+    headers['x-fortday-signature'] = crypto
+      .createHmac('sha256', config.crmWebhookSecret)
+      .update(payload)
+      .digest('hex');
+  }
 
-  db.all("SELECT * FROM products", (err, products) => {
-    if (err) {
-      return res.status(500).json({ error: err.message });
+  const response = await fetch(config.crmWebhookUrl, {
+    method: 'POST',
+    headers,
+    body: payload,
+    signal: AbortSignal.timeout(10000)
+  });
+  if (!response.ok) {
+    throw new Error(`CRM webhook returned HTTP ${response.status}`);
+  }
+  return true;
+}
+
+function createApp({ database, stripe, config = createConfig(), mailer = createMailer(config) }) {
+  const app = express();
+  app.disable('x-powered-by');
+
+  app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok' });
+  });
+
+  app.get('/api/config', (req, res) => {
+    res.json({ supportEmail: config.supportEmail, socialLinks: config.socialLinks });
+  });
+
+  app.get('/api/products', asyncRoute(async (req, res) => {
+    const products = await database.listProducts();
+    res.json({ products });
+  }));
+
+  app.post('/api/checkout', express.json({ limit: '10kb' }), asyncRoute(async (req, res) => {
+    if (!stripe) {
+      return res.status(503).json({ error: 'Checkout is not configured. Add STRIPE_SECRET_KEY to the environment.' });
+    }
+    const { productId, email } = req.body || {};
+    if (typeof productId !== 'string' || typeof email !== 'string' ||
+        email.length > 254 || !emailPattern.test(email)) {
+      return res.status(400).json({ error: 'Enter a valid email address and select a product.' });
     }
 
-    // O(n²) search algorithm using nested loops
-    const results = [];
-    for (let i = 0; i < products.length; i++) {
-      for (let j = 0; j < products.length; j++) {
-        if (products[i].name.toLowerCase().includes(query.toLowerCase())) {
-          if (!results.includes(products[i])) {
-            results.push(products[i]);
+    const product = await database.getProduct(productId);
+    if (!product) return res.status(404).json({ error: 'That product is not available.' });
+
+    const orderId = crypto.randomUUID();
+    const customerEmail = email.trim().toLowerCase();
+    const session = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      client_reference_id: orderId,
+      customer_email: customerEmail,
+      line_items: [{
+        quantity: 1,
+        price_data: {
+          currency: product.currency,
+          unit_amount: product.amount,
+          product_data: {
+            name: product.name,
+            description: product.description
           }
+        }
+      }],
+      metadata: { order_id: orderId, product_id: product.id },
+      success_url: `${config.baseUrl}/?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${config.baseUrl}/?checkout=cancelled`,
+      expires_at: Math.floor(Date.now() / 1000) + 30 * 60
+    });
+
+    await database.createPendingOrder({
+      id: orderId,
+      sessionId: session.id,
+      productId: product.id,
+      email: customerEmail,
+      amount: product.amount,
+      currency: product.currency,
+      timestamp: new Date().toISOString()
+    });
+    res.status(201).json({ checkoutUrl: session.url });
+  }));
+
+  app.post('/api/webhooks/stripe', express.raw({ type: 'application/json', limit: '1mb' }), asyncRoute(async (req, res) => {
+    if (!stripe || !config.stripeWebhookSecret) {
+      return res.status(503).send('Stripe webhooks are not configured.');
+    }
+
+    let event;
+    try {
+      event = stripe.webhooks.constructEvent(
+        req.body,
+        req.get('stripe-signature'),
+        config.stripeWebhookSecret
+      );
+    } catch (error) {
+      console.warn(`Rejected Stripe webhook: ${error.message}`);
+      return res.status(400).send('Invalid Stripe signature.');
+    }
+
+    if (await database.isStripeEventProcessed(event.id)) {
+      return res.json({ received: true, duplicate: true });
+    }
+
+    const isCheckoutPaid = event.type === 'checkout.session.completed' ||
+      event.type === 'checkout.session.async_payment_succeeded';
+    if (isCheckoutPaid) {
+      const session = event.data.object;
+      if (session.payment_status === 'paid') {
+        const orderId = session.metadata && session.metadata.order_id;
+        const productId = session.metadata && session.metadata.product_id;
+        const email = session.customer_details && session.customer_details.email || session.customer_email;
+        if (!orderId || !productId || !email || !Number.isInteger(session.amount_total) || !session.currency) {
+          return res.status(400).send('Checkout session is missing required purchase details.');
+        }
+
+        const order = await database.fulfillOrder({
+          orderId,
+          sessionId: session.id,
+          productId,
+          email: email.toLowerCase(),
+          amount: session.amount_total,
+          currency: session.currency.toLowerCase(),
+          token: crypto.randomBytes(32).toString('hex'),
+          timestamp: new Date().toISOString()
+        });
+
+        if (!order.email_sent_at && mailer) {
+          const downloadUrl = `${config.baseUrl}/api/download/${order.download_token}`;
+          await mailer.sendMail({
+            from: config.smtpFrom,
+            to: order.customer_email,
+            subject: `Your ${order.product_name} download`,
+            text: `Thanks for your purchase. Your order number is ${order.id}.\n\nDownload ${order.product_name} here: ${downloadUrl}\n\nIf you need help, contact ${config.supportEmail || 'our support team'}.`
+          });
+          await database.markEmailSent(order.id, new Date().toISOString());
+        }
+
+        if (!order.email_sent_at && !mailer) {
+          console.warn(`SMTP is not configured; receipt email for order ${order.id} was not sent.`);
+        }
+
+        if (!order.crm_notified_at && config.crmWebhookUrl) {
+          await sendCrmNotification(config, order);
+          await database.markCrmNotified(order.id, new Date().toISOString());
         }
       }
     }
 
-    res.json({ results });
-  });
-});
+    await database.markStripeEventProcessed(event.id, new Date().toISOString());
+    res.json({ received: true });
+  }));
 
-// Route 4: Inefficient string manipulation in loop
-app.get('/api/products/process', (req, res) => {
-  db.all("SELECT * FROM products", (err, products) => {
-    if (err) {
-      return res.status(500).json({ error: err.message });
+  app.get('/api/orders/session/:sessionId', asyncRoute(async (req, res) => {
+    const order = await database.getOrderBySession(req.params.sessionId);
+    if (!order || order.status !== 'paid') {
+      return res.status(404).json({ error: 'A completed purchase for this session was not found yet.' });
     }
+    res.json({
+      orderId: order.id,
+      productName: order.product_name,
+      downloadUrl: `/api/download/${order.download_token}`
+    });
+  }));
 
-    // String concatenation in loop (extremely inefficient)
-    let result = '';
-    for (let i = 0; i < products.length; i++) {
-      result += 'Product: ' + products[i].name + ', Price: $' + products[i].price + '\n';
+  app.post('/api/support/order', express.json({ limit: '10kb' }), asyncRoute(async (req, res) => {
+    const { orderId, email } = req.body || {};
+    if (typeof orderId !== 'string' || typeof email !== 'string' ||
+        !/^[0-9a-f-]{36}$/i.test(orderId) || email.length > 254 || !emailPattern.test(email)) {
+      return res.status(400).json({ error: 'Enter the order number and the email used at checkout.' });
     }
+    const order = await database.getOrderByIdAndEmail(orderId, email.trim().toLowerCase());
+    if (!order) return res.status(404).json({ error: 'We could not find an order with those details.' });
 
-    res.json({ data: result });
-  });
-});
-
-// Route 5: Memory leak with event listeners (Issue #8)
-app.post('/api/orders/:orderId/subscribe', (req, res) => {
-  const orderId = req.params.orderId;
-  const clientId = uuidv4();
-
-  if (!eventListeners[orderId]) {
-    eventListeners[orderId] = [];
-  }
-
-  // These listeners are never cleaned up
-  const listener = () => {
-    console.log(`Order ${orderId} updated for client ${clientId}`);
-  };
-
-  eventListeners[orderId].push(listener);
-
-  // No unsubscribe mechanism - memory leak
-  res.json({ message: 'Subscribed', clientId });
-});
-
-// Route 6: Poorly optimized regex (Issue #7)
-app.post('/api/validate/email', (req, res) => {
-  const email = req.body.email;
-
-  // Catastrophic backtracking regex
-  const poorlyOptimizedRegex = /^([a-zA-Z0-9]+)*@([a-zA-Z0-9]+)*\.([a-zA-Z0-9]+)*$/;
-
-  const isValid = poorlyOptimizedRegex.test(email);
-  res.json({ valid: isValid });
-});
-
-// Route 7: No caching layer (Issue #4)
-// Same expensive query runs every time without caching
-app.get('/api/stats/category/:category', (req, res) => {
-  const category = req.category || req.params.category;
-
-  // No Redis or caching - this runs every single time
-  db.all(
-    "SELECT * FROM products WHERE category = ? LIMIT 10000",
-    [category],
-    (err, products) => {
-      if (err) {
-        return res.status(500).json({ error: err.message });
-      }
-
-      // Expensive calculation repeated every time
-      let stats = {
-        total: products.length,
-        avgPrice: 0,
-        totalValue: 0,
-        priceDistribution: {}
-      };
-
-      for (let i = 0; i < products.length; i++) {
-        stats.totalValue += products[i].price;
-        const priceRange = Math.floor(products[i].price / 100);
-        stats.priceDistribution[priceRange] = (stats.priceDistribution[priceRange] || 0) + 1;
-      }
-
-      stats.avgPrice = stats.totalValue / products.length;
-
-      res.json(stats);
-    }
-  );
-});
-
-// Route 8: Missing connection pooling on database (Issue #10)
-app.get('/api/concurrent/data', (req, res) => {
-  // Each request opens a new database connection without pooling
-  let results = { users: null, products: null, orders: null };
-  let completed = 0;
-
-  db.all("SELECT * FROM users LIMIT 100", (err, users) => {
-    results.users = users;
-    completed++;
-    if (completed === 3) {
-      res.json(results);
-    }
-  });
-
-  db.all("SELECT * FROM products LIMIT 100", (err, products) => {
-    results.products = products;
-    completed++;
-    if (completed === 3) {
-      res.json(results);
-    }
-  });
-
-  db.all("SELECT * FROM orders LIMIT 100", (err, orders) => {
-    results.orders = orders;
-    completed++;
-    if (completed === 3) {
-      res.json(results);
-    }
-  });
-});
-
-// Route 9: Uncompressed responses (Issue #6)
-app.get('/api/bulk-data', (req, res) => {
-  db.all("SELECT * FROM products", (err, products) => {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
-
-    // Large response without compression
-    const largeData = {
-      timestamp: new Date(),
-      products: products,
-      // Duplicate data to make response large
-      duplicates: products.concat(products).concat(products)
+    const result = {
+      orderId: order.id,
+      productName: order.product_name,
+      status: order.status
     };
-
-    // No Content-Encoding header, no gzip
-    res.json(largeData);
-  });
-});
-
-// Route 10: Query without pagination (Issue #9)
-app.get('/api/logs', (req, res) => {
-  // Returns ALL logs without pagination or limit
-  db.all("SELECT * FROM logs", (err, logs) => {
-    if (err) {
-      return res.status(500).json({ error: err.message });
+    if (order.status === 'paid') {
+      result.downloadUrl = `/api/download/${order.download_token}`;
     }
+    res.json(result);
+  }));
 
-    res.json({ logs });
+  app.get('/api/download/:token', asyncRoute(async (req, res, next) => {
+    const order = await database.getOrderByDownloadToken(req.params.token);
+    if (!order) return res.status(404).json({ error: 'This download link is invalid or unavailable.' });
+
+    const filePath = path.resolve(ASSET_DIRECTORY, order.file_name);
+    if (path.dirname(filePath) !== ASSET_DIRECTORY) {
+      return res.status(500).json({ error: 'The product download is misconfigured.' });
+    }
+    res.download(filePath, path.basename(filePath), (error) => {
+      if (error && !res.headersSent) next(error);
+    });
+  }));
+
+  app.use(express.static(PUBLIC_DIRECTORY, { index: 'index.html' }));
+
+  app.use((error, req, res, next) => {
+    console.error(error);
+    if (res.headersSent) return next(error);
+    const status = Number.isInteger(error.status) && error.status >= 400 && error.status < 500
+      ? error.status
+      : 500;
+    const message = status === 413
+      ? 'Request body is too large.'
+      : status === 400
+        ? 'Invalid request body.'
+        : 'An unexpected server error occurred.';
+    res.status(status).json({ error: message });
   });
-});
 
-// Health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
-});
+  return app;
+}
 
-// Initialize and start server
-initializeDatabase();
+async function start() {
+  const config = createConfig();
+  const stripe = config.stripeSecretKey ? new Stripe(config.stripeSecretKey) : null;
+  const rawDb = openDatabase();
+  rawDb.on('error', (error) => console.error('SQLite error:', error));
+  await initializeDatabase(rawDb);
+  const database = createStoreDatabase(rawDb);
+  const app = createApp({ database, stripe, config });
+  const server = app.listen(PORT, () => {
+    console.log(`Fortday storefront listening on port ${PORT}`);
+    if (!stripe) console.warn('Stripe is not configured; checkout endpoints will return 503.');
+    if (!config.stripeWebhookSecret) console.warn('Stripe webhooks are not configured.');
+  });
 
-app.listen(PORT, () => {
-  console.log(`Moonlight Mart API listening on port ${PORT}`);
-});
+  const shutdown = () => {
+    server.close(async (error) => {
+      if (error) console.error('HTTP server shutdown failed:', error);
+      try {
+        await closeDatabase(rawDb);
+      } catch (databaseError) {
+        console.error('Database shutdown failed:', databaseError);
+        process.exitCode = 1;
+      }
+    });
+  };
+  process.once('SIGINT', shutdown);
+  process.once('SIGTERM', shutdown);
+}
+
+if (require.main === module) {
+  start().catch((error) => {
+    console.error('Unable to start the storefront:', error);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { createApp, createConfig, createMailer };
