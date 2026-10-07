@@ -1,0 +1,21 @@
+CREATOR LAUNCH CHECKLIST
+
+BEFORE LAUNCH
+[ ] Describe the person this product is for.
+[ ] Explain the outcome it helps them reach.
+[ ] Check that the final files open on common devices.
+[ ] Set a clear price and refund/support policy.
+[ ] Test checkout and delivery from beginning to end.
+[ ] Write a concise product description and FAQ.
+
+LAUNCH DAY
+[ ] Verify the live product page and payment settings.
+[ ] Send the announcement to the people who asked to hear from you.
+[ ] Check that purchase and delivery notifications are arriving.
+[ ] Make a note of customer questions and confusing steps.
+
+AFTER LAUNCH
+[ ] Thank customers and answer support requests.
+[ ] Fix delivery or checkout issues promptly.
+[ ] Review feedback before planning the next update.
+[ ] Keep a sustainable pace.
