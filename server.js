@@ -95,24 +95,16 @@ app.get('/api/export/orders', (req, res) => {
 
 // Route 3: Inefficient loops and algorithms (Issue #3)
 app.get('/api/products/search', (req, res) => {
-  const query = req.query.q || '';
+  const query = (req.query.q || '').toLowerCase();
 
   db.all("SELECT * FROM products", (err, products) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
 
-    // O(n²) search algorithm using nested loops
-    const results = [];
-    for (let i = 0; i < products.length; i++) {
-      for (let j = 0; j < products.length; j++) {
-        if (products[i].name.toLowerCase().includes(query.toLowerCase())) {
-          if (!results.includes(products[i])) {
-            results.push(products[i]);
-          }
-        }
-      }
-    }
+    const results = products.filter((product) =>
+      product.name.toLowerCase().includes(query)
+    );
 
     res.json({ results });
   });
