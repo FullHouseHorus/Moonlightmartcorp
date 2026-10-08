@@ -28,6 +28,15 @@ const sampleProducts = [
     amount: 700,
     currency: 'usd',
     fileName: 'launch-checklist.txt'
+  },
+  {
+    id: 'fortday-service-business-weekly-planner',
+    name: 'Service Business Weekly Planner',
+    description: 'A practical weekly planner for independent service businesses to organize outreach, customer follow-ups, and delivery.',
+    category: 'Business',
+    amount: 900,
+    currency: 'usd',
+    fileName: 'service-business-weekly-planner.txt'
   }
 ];
 

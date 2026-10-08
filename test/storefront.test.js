@@ -26,6 +26,7 @@ test('checkout, signed payment fulfillment, order lookup, and protected download
     baseUrl: 'http://localhost',
     stripeWebhookSecret: 'whsec_test_fortday',
     supportEmail: 'help@example.com',
+    cashAppTag: 'handtohandblackpower',
     crmWebhookUrl: '',
     crmWebhookSecret: '',
     smtpFrom: 'Fortday <receipts@example.com>'
@@ -47,9 +48,14 @@ test('checkout, signed payment fulfillment, order lookup, and protected download
   const catalogResponse = await fetch(`${baseUrl}/api/products`);
   assert.equal(catalogResponse.status, 200);
   const { products } = await catalogResponse.json();
-  assert.equal(products.length, 3);
+  assert.equal(products.length, 4);
   const product = products.find((item) => item.id === 'fortday-weekly-planner');
   assert.equal(product.amount > 0, true);
+  assert.ok(products.some((item) => item.id === 'fortday-service-business-weekly-planner'));
+
+  const configResponse = await fetch(`${baseUrl}/api/config`);
+  assert.equal(configResponse.status, 200);
+  assert.equal((await configResponse.json()).cashAppTag, 'handtohandblackpower');
 
   const invalidCheckout = await fetch(`${baseUrl}/api/checkout`, {
     method: 'POST',

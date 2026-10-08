@@ -1,9 +1,9 @@
 const productsElement = document.querySelector('#products');
 const noticeElement = document.querySelector('#notice');
 const launchCaptions = {
-  instagram: 'Make room for what matters. 🌿\n\nMeet Fortday: thoughtful digital tools to help you plan your week, find your rhythm, and bring good ideas to life.\n\nExplore the collection at {url}\n\n#Fortday #MindfulPlanning #CreativeLife',
-  facebook: 'A little more intention, every day. Fortday brings together thoughtful guides and practical digital tools to help make your days feel more like your own.\n\nTake a look at the collection: {url}',
-  tiktok: 'Your reminder to make room for what matters 🌱 Thoughtful little tools for your week, your morning, and the ideas you can’t wait to bring to life. Find your next favorite at {url} #Fortday #DailyInspiration'
+  instagram: 'Plan the week you want to run. 🌿\n\nIndependent service business owners: Fortday’s new weekly planner helps you organize outreach, customer follow-ups, and client work in one simple place.\n\nExplore the collection at {url}\n\n#Fortday #SmallBusiness #WeeklyPlanning',
+  facebook: 'Running an independent service business means balancing client work with the follow-ups and planning that keep the week moving. Fortday’s Service Business Weekly Planner is a simple place to map outreach, customer follow-ups, and delivery.\n\nTake a look at the collection: {url}',
+  tiktok: 'Solo service business owners: make a little room for the work behind the work. Plan outreach, client follow-ups, and delivery for the week with Fortday’s new planner. Find it at {url} #SmallBusiness #WeeklyPlanning'
 };
 let selectedCaptionPlatform = 'instagram';
 
@@ -136,6 +136,11 @@ async function loadSupportAddress() {
     const response = await fetch('/api/config');
     if (!response.ok) return;
     const config = await response.json();
+    if (config.cashAppTag && /^[A-Za-z][A-Za-z0-9_]{0,19}$/.test(config.cashAppTag)) {
+      const link = document.querySelector('#cash-app-support-link');
+      link.href = `https://cash.app/$${config.cashAppTag}`;
+      link.hidden = false;
+    }
     if (config.supportEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(config.supportEmail)) {
       const link = document.querySelector('#support-link');
       link.href = `mailto:${config.supportEmail}`;

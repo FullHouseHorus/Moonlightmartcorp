@@ -28,6 +28,7 @@ function createConfig(env = process.env) {
     stripeSecretKey: env.STRIPE_SECRET_KEY || '',
     stripeWebhookSecret: env.STRIPE_WEBHOOK_SECRET || '',
     supportEmail: env.SUPPORT_EMAIL || '',
+    cashAppTag: safeCashAppTag(env.CASH_APP_TAG || 'handtohandblackpower'),
     crmWebhookUrl: env.CRM_WEBHOOK_URL || '',
     crmWebhookSecret: env.CRM_WEBHOOK_SECRET || '',
     smtpHost: env.SMTP_HOST || '',
@@ -41,6 +42,14 @@ function createConfig(env = process.env) {
       tiktok: safeSocialUrl(env.SOCIAL_TIKTOK_URL, 'SOCIAL_TIKTOK_URL')
     }
   };
+}
+
+function safeCashAppTag(value) {
+  const tag = value.replace(/^\$/, '');
+  if (!/^[A-Za-z][A-Za-z0-9_]{0,19}$/.test(tag)) {
+    throw new Error('CASH_APP_TAG must be a valid Cash App tag.');
+  }
+  return tag;
 }
 
 function safeSocialUrl(value, key) {
@@ -106,7 +115,11 @@ function createApp({ database, stripe, config = createConfig(), mailer = createM
   });
 
   app.get('/api/config', (req, res) => {
-    res.json({ supportEmail: config.supportEmail, socialLinks: config.socialLinks });
+    res.json({
+      supportEmail: config.supportEmail,
+      cashAppTag: config.cashAppTag,
+      socialLinks: config.socialLinks
+    });
   });
 
   app.get('/api/products', asyncRoute(async (req, res) => {
