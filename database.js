@@ -87,6 +87,10 @@ async function initializeDatabase(db) {
     )
   `);
   await run(db, `
+    CREATE INDEX IF NOT EXISTS idx_store_products_active_category_name
+    ON store_products(active, category, name)
+  `);
+  await run(db, `
     CREATE TABLE IF NOT EXISTS store_orders (
       id TEXT PRIMARY KEY,
       stripe_session_id TEXT UNIQUE,
