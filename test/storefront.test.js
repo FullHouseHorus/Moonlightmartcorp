@@ -48,10 +48,11 @@ test('checkout, signed payment fulfillment, order lookup, and protected download
   const catalogResponse = await fetch(`${baseUrl}/api/products`);
   assert.equal(catalogResponse.status, 200);
   const { products } = await catalogResponse.json();
-  assert.equal(products.length, 4);
+  assert.equal(products.length, 5);
   const product = products.find((item) => item.id === 'fortday-weekly-planner');
   assert.equal(product.amount > 0, true);
   assert.ok(products.some((item) => item.id === 'fortday-service-business-weekly-planner'));
+  assert.ok(products.some((item) => item.id === 'fortday-home-bakery-weekly-planner'));
 
   const configResponse = await fetch(`${baseUrl}/api/config`);
   assert.equal(configResponse.status, 200);

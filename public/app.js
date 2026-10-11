@@ -1,9 +1,9 @@
 const productsElement = document.querySelector('#products');
 const noticeElement = document.querySelector('#notice');
 const launchCaptions = {
-  instagram: 'Plan the week you want to run. 🌿\n\nIndependent service business owners: Fortday’s new weekly planner helps you organize outreach, customer follow-ups, and client work in one simple place.\n\nExplore the collection at {url}\n\n#Fortday #SmallBusiness #WeeklyPlanning',
-  facebook: 'Running an independent service business means balancing client work with the follow-ups and planning that keep the week moving. Fortday’s Service Business Weekly Planner is a simple place to map outreach, customer follow-ups, and delivery.\n\nTake a look at the collection: {url}',
-  tiktok: 'Solo service business owners: make a little room for the work behind the work. Plan outreach, client follow-ups, and delivery for the week with Fortday’s new planner. Find it at {url} #SmallBusiness #WeeklyPlanning'
+  instagram: 'A calmer bake week starts with a plan. 🧁\n\nHome bakers: map your baking days, ingredient prep, orders, and customer pickups with Fortday’s Home Bakery Weekly Planner.\n\nExplore the collection at {url}\n\n#Fortday #HomeBaker #WeeklyPlanning',
+  facebook: 'Planning a home bakery week means balancing baking, ingredient prep, orders, and pickup times. Fortday’s Home Bakery Weekly Planner gives you one simple place to map it out.\n\nTake a look at the collection: {url}',
+  tiktok: 'Home bakers: get this week’s bakes, prep, orders, and pickups out of your head and onto one page. Find the Home Bakery Weekly Planner at {url} #HomeBaker #BakingBusiness'
 };
 let selectedCaptionPlatform = 'instagram';
 

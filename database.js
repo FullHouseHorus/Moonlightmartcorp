@@ -37,6 +37,15 @@ const sampleProducts = [
     amount: 900,
     currency: 'usd',
     fileName: 'service-business-weekly-planner.txt'
+  },
+  {
+    id: 'fortday-home-bakery-weekly-planner',
+    name: 'Home Bakery Weekly Planner',
+    description: 'A practical weekly planner for home bakers to organize baking, ingredient prep, orders, and customer pickups.',
+    category: 'Planning',
+    amount: 900,
+    currency: 'usd',
+    fileName: 'home-bakery-weekly-planner.txt'
   }
 ];
 

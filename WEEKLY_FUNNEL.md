@@ -21,3 +21,29 @@ The funnel is social content → storefront product card → Stripe checkout →
 ## Support and consent
 
 Use the site's Cash App support link for voluntary app support only. Cash App handles the payment; the storefront does not receive payment confirmation or issue receipts for those contributions. Keep marketing sign-ups separate from Stripe receipt emails and only send promotional email to people who explicitly opt in.
+
+---
+
+# Weekly funnel: home bakers
+
+## Niche and offer
+
+Focus on home bakers who take small-batch orders and need a simple way to plan baking, ingredient prep, order deadlines, and customer pickups. The featured offer is the **Home Bakery Weekly Planner** ($9), delivered through the existing Stripe checkout and download flow.
+
+The funnel is social content → storefront product card → Stripe checkout → instant download and receipt. The Cash App link remains a separate, optional way to support the app; it is not a product payment method.
+
+## Seven-day campaign
+
+| Day | Funnel role | Post prompt and call to action |
+| --- | --- | --- |
+| Monday | Awareness | Ask home bakers which part of the week gets busiest: prep, baking, or pickups. |
+| Tuesday | Helpful tip | Share a simple prep checklist: confirm orders, check ingredients, and choose baking days. Link to the planner. |
+| Wednesday | Product demo | Show the planner's sections for bake schedule, ingredients, orders, and pickup times. |
+| Thursday | Objection handling | Explain that the printable planner complements existing recipes and order tools; it does not replace them. |
+| Friday | Conversion | Remind followers the planner is available for $9, with secure checkout and instant download. |
+| Saturday | Engagement | Ask followers which item they most often forget to prepare before a bake day. |
+| Sunday | Reset | Invite home bakers to map next week's orders and prep before Monday. |
+
+## Support and consent
+
+Cash App is for voluntary app support only. Product purchases continue through Stripe checkout, and the storefront does not verify Cash App contributions or issue Cash App receipts. Keep promotional email opt-in separate from purchase receipts.
