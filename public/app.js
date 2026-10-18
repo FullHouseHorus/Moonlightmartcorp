@@ -1,9 +1,9 @@
 const productsElement = document.querySelector('#products');
 const noticeElement = document.querySelector('#notice');
 const launchCaptions = {
-  instagram: 'Make room for what matters. 🌿\n\nMeet Fortday: thoughtful digital tools to help you plan your week, find your rhythm, and bring good ideas to life.\n\nExplore the collection at {url}\n\n#Fortday #MindfulPlanning #CreativeLife',
-  facebook: 'A little more intention, every day. Fortday brings together thoughtful guides and practical digital tools to help make your days feel more like your own.\n\nTake a look at the collection: {url}',
-  tiktok: 'Your reminder to make room for what matters 🌱 Thoughtful little tools for your week, your morning, and the ideas you can’t wait to bring to life. Find your next favorite at {url} #Fortday #DailyInspiration'
+  instagram: 'A calmer bake week starts with a plan. 🧁\n\nHome bakers: map your baking days, ingredient prep, orders, and customer pickups with Fortday’s Home Bakery Weekly Planner.\n\nExplore the collection at {url}\n\n#Fortday #HomeBaker #WeeklyPlanning',
+  facebook: 'Planning a home bakery week means balancing baking, ingredient prep, orders, and pickup times. Fortday’s Home Bakery Weekly Planner gives you one simple place to map it out.\n\nTake a look at the collection: {url}',
+  tiktok: 'Home bakers: get this week’s bakes, prep, orders, and pickups out of your head and onto one page. Find the Home Bakery Weekly Planner at {url} #HomeBaker #BakingBusiness'
 };
 let selectedCaptionPlatform = 'instagram';
 
@@ -136,6 +136,11 @@ async function loadSupportAddress() {
     const response = await fetch('/api/config');
     if (!response.ok) return;
     const config = await response.json();
+    if (config.cashAppTag && /^[A-Za-z][A-Za-z0-9_]{0,19}$/.test(config.cashAppTag)) {
+      const link = document.querySelector('#cash-app-support-link');
+      link.href = `https://cash.app/$${config.cashAppTag}`;
+      link.hidden = false;
+    }
     if (config.supportEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(config.supportEmail)) {
       const link = document.querySelector('#support-link');
       link.href = `mailto:${config.supportEmail}`;
