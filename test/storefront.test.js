@@ -13,6 +13,13 @@ const { createApp } = require('../server');
 test('checkout, signed payment fulfillment, order lookup, and protected download', async (t) => {
   const rawDb = openDatabase(':memory:');
   await initializeDatabase(rawDb);
+  const productIndexes = await new Promise((resolve, reject) => {
+    rawDb.all("PRAGMA index_list('store_products')", (error, indexes) => {
+      if (error) return reject(error);
+      resolve(indexes);
+    });
+  });
+  assert.ok(productIndexes.some((index) => index.name === 'idx_store_products_active_category_name'));
   const database = createStoreDatabase(rawDb);
   const stripe = new Stripe('sk_test_example');
   let checkoutOptions;
